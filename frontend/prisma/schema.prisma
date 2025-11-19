@@ -6,13 +6,11 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma",
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -86,15 +84,15 @@ model Jwks {
 }
 
 model Workflow {
-  id             String           @id @default(uuid())
+  id             String          @id @default(uuid())
   title          String
   description    String?
-  status         String           @default("pending")
+  status         String          @default("pending")
   notes          Json?
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  userId         String           @map("user_id")
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  userId         String          @map("user_id")
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflowFiles  WorkflowFile[]
   processingJobs ProcessingJob[]
 
@@ -129,7 +127,7 @@ model ProcessingJob {
   updatedAt   DateTime            @updatedAt @map("updated_at")
   startedAt   DateTime?           @map("started_at")
   completedAt DateTime?           @map("completed_at")
-  files Files[]
+  files       Files[]
 
   @@map("processing_job")
 }
@@ -147,15 +145,15 @@ enum ProcessingJobStatus {
 }
 
 model Files {
-  id          String   @id @default(cuid())
-  s3Key       String
-  name        String
-  url         String
-  workflowId  String
-  userId      String
+  id         String @id @default(cuid())
+  s3Key      String
+  name       String
+  url        String
+  workflowId String
+  userId     String
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   processingJobId String?
   processingJob   ProcessingJob? @relation(fields: [processingJobId], references: [id], onDelete: Cascade)
