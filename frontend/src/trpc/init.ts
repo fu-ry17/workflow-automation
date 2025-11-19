@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/modules/auth/lib/auth";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { headers } from "next/headers";

@@ -7,8 +7,9 @@ import {
   workflowSchema,
   updateWorkflowStatusSchema,
 } from "./schema";
-import prisma from "@/lib/prisma";
+
 import { TRPCError } from "@trpc/server";
+import { prisma } from "@/lib/prisma";
 
 export const workFlowProcedure = createTRPCRouter({
   getMany: protectedProcedure
@@ -123,67 +124,67 @@ export const workFlowProcedure = createTRPCRouter({
       }
     }),
 
-  get: protectedProcedure.input(getWorkflowSchema).query(async ({ input, ctx }) => {
-    try {
-      const workflow = await prisma.workflow.findFirst({
-        where: {
-          id: input.id,
-          userId: ctx.userId,
-        },
-      });
+  get: protectedProcedure
+    .input(getWorkflowSchema)
+    .query(async ({ input, ctx }) => {
+      try {
+        const workflow = await prisma.workflow.findFirst({
+          where: {
+            id: input.id,
+            userId: ctx.userId,
+          },
+        });
 
-      if (!workflow) {
+        if (!workflow) {
+          throw new TRPCError({
+            message: "Workflow not found",
+            code: "NOT_FOUND",
+          });
+        }
+
+        return {
+          id: workflow.id,
+          title: workflow.title,
+          description: workflow.description || "",
+          status: workflow.status,
+          notes: workflow.notes as { note?: string | null } | null,
+          created_at: workflow.createdAt.toISOString(),
+          updated_at: workflow.updatedAt.toISOString(),
+        } as WorkflowResponse;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Get workflow error:", error);
         throw new TRPCError({
-          message: "Workflow not found",
-          code: "NOT_FOUND",
+          message: "Failed to get workflow",
+          code: "INTERNAL_SERVER_ERROR",
         });
       }
+    }),
 
-      return {
-        id: workflow.id,
-        title: workflow.title,
-        description: workflow.description || "",
-        status: workflow.status,
-        notes: workflow.notes as { note?: string | null } | null,
-        created_at: workflow.createdAt.toISOString(),
-        updated_at: workflow.updatedAt.toISOString(),
-      } as WorkflowResponse;
-    } catch (error) {
-      if (error instanceof TRPCError) {
-        throw error;
-      }
-      console.error("Get workflow error:", error);
-      throw new TRPCError({
-        message: "Failed to get workflow",
-        code: "INTERNAL_SERVER_ERROR",
-      });
-    }
-  }),
-   
   updateStatus: protectedProcedure
-  .input(updateWorkflowStatusSchema)
-  .mutation(async ({ input, ctx }) => {
-    try {
-      // Update multiple workflows at once
-      await prisma.workflow.updateMany({
-        where: {
-          id: { in: input.ids },
-          userId: ctx.userId, // Ensure user owns these workflows
-        },
-        data: {
-          status: input.status,
-        },
-      });
+    .input(updateWorkflowStatusSchema)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Update multiple workflows at once
+        await prisma.workflow.updateMany({
+          where: {
+            id: { in: input.ids },
+            userId: ctx.userId, // Ensure user owns these workflows
+          },
+          data: {
+            status: input.status,
+          },
+        });
 
-      return { success: true };
-    } catch (error) {
-      console.error("Update workflow status error:", error);
-      throw new TRPCError({
-        message: "Failed to update workflow status",
-        code: "INTERNAL_SERVER_ERROR",
-      });
-    }
-  }),
- 
-  
+        return { success: true };
+      } catch (error) {
+        console.error("Update workflow status error:", error);
+        throw new TRPCError({
+          message: "Failed to update workflow status",
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+    }),
 });

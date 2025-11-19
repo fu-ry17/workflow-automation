@@ -1,4 +1,3 @@
-import prisma from "@/lib/prisma";
 import { TRPCError } from "@trpc/server";
 import { deleteFile, uploadFile } from "@/lib/aws";
 import {
@@ -6,6 +5,7 @@ import {
   type WorkflowFileResponse,
 } from "./schema";
 import { randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
 
 const MAX_LIMIT = 50;
 

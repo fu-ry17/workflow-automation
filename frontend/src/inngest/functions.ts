@@ -1,6 +1,6 @@
-import prisma from "@/lib/prisma";
 import { inngest } from "./client";
 import { listFiles } from "@/lib/aws";
+import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 
 export const processWorkFlow = inngest.createFunction(
@@ -61,26 +61,25 @@ export const processWorkFlow = inngest.createFunction(
       });
 
       // 4. Call Endpoint using the current 's3Key' variable, NOT 'job.s3_key'
-      await step.fetch(process.env.PROCESS_WORKFLOW_ENDPOINT!,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            payload: job.payload,
-            workflow_type: job.jobType,
-            folder_id: s3Key, // <--- USE s3Key HERE
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.PROCESS_WORKFLOW_AUTH!}`,
-          },
-        }
-      );
+      await step.fetch(process.env.PROCESS_WORKFLOW_ENDPOINT!, {
+        method: "POST",
+        body: JSON.stringify({
+          payload: job.payload,
+          workflow_type: job.jobType,
+          folder_id: s3Key, // <--- USE s3Key HERE
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.PROCESS_WORKFLOW_AUTH!}`,
+        },
+      });
 
       // 5. Save files using the current 's3Key' variable
       const { filesFound } = await step.run(
         "save-resulting-files",
         async () => {
-          if (!s3Key) { // <--- USE s3Key HERE
+          if (!s3Key) {
+            // <--- USE s3Key HERE
             throw new Error("No S3 key provided for folder lookup");
           }
 
@@ -104,7 +103,7 @@ export const processWorkFlow = inngest.createFunction(
           }
 
           return { filesFound: resultKeys.length };
-        }
+        },
       );
 
       // 6. Mark successful
@@ -132,5 +131,5 @@ export const processWorkFlow = inngest.createFunction(
 
       throw error;
     }
-  }
+  },
 );

@@ -7,11 +7,12 @@ import {
   JobResponse,
   jobSchema,
 } from "./schema";
-import prisma from "@/lib/prisma";
+
 import { TRPCError } from "@trpc/server";
 import { inngest } from "@/inngest/client";
 import { generateDownloadUrl } from "@/lib/aws";
 import z from "zod";
+import { prisma } from "@/lib/prisma";
 
 const formatJob = (job: any): JobResponse => ({
   id: job.id,
@@ -29,7 +30,7 @@ const formatJob = (job: any): JobResponse => ({
   updated_at: job.updatedAt.toISOString(),
   started_at: job.startedAt?.toISOString() || null,
   completed_at: job.completedAt?.toISOString() || null,
-  files: job.files
+  files: job.files,
 });
 
 export const jobProcedure = createTRPCRouter({
@@ -37,7 +38,16 @@ export const jobProcedure = createTRPCRouter({
     .input(getManyJobsSchema)
     .query(async ({ input, ctx }) => {
       try {
-        const { search, workflowId, jobType, status, sortBy, sortOrder, page, limit } = input;
+        const {
+          search,
+          workflowId,
+          jobType,
+          status,
+          sortBy,
+          sortOrder,
+          page,
+          limit,
+        } = input;
         const skip = (page - 1) * limit;
 
         const where: any = {
@@ -89,7 +99,10 @@ export const jobProcedure = createTRPCRouter({
     .input(jobSchema)
     .mutation(async ({ input, ctx }) => {
       if (!ctx.userId) {
-        throw new TRPCError({ message: "User not authenticated", code: "UNAUTHORIZED" });
+        throw new TRPCError({
+          message: "User not authenticated",
+          code: "UNAUTHORIZED",
+        });
       }
 
       try {
@@ -101,7 +114,10 @@ export const jobProcedure = createTRPCRouter({
         });
 
         if (!workflow) {
-          throw new TRPCError({ message: "Workflow not found", code: "NOT_FOUND" });
+          throw new TRPCError({
+            message: "Workflow not found",
+            code: "NOT_FOUND",
+          });
         }
 
         const job = await prisma.processingJob.create({
@@ -109,7 +125,7 @@ export const jobProcedure = createTRPCRouter({
             workflowId: input.workflowId,
             userId: ctx.userId,
             // @ts-ignore
-            jobType: input.jobType, 
+            jobType: input.jobType,
             s3_key: input.s3_key || null,
             payload: input.payload || null,
             status: "queued",
@@ -120,35 +136,39 @@ export const jobProcedure = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("Create job error:", error);
-        throw new TRPCError({ message: "Failed to create job", code: "INTERNAL_SERVER_ERROR" });
-      }
-    }),
-
-  get: protectedProcedure
-    .input(getJobSchema)
-    .query(async ({ input, ctx }) => {
-      try {
-        const job = await prisma.processingJob.findFirst({
-          where: {
-            id: input.id,
-            userId: ctx.userId,
-          },
-          include: {
-            files: true
-          }
+        throw new TRPCError({
+          message: "Failed to create job",
+          code: "INTERNAL_SERVER_ERROR",
         });
-
-        if (!job) {
-          throw new TRPCError({ message: "Job not found", code: "NOT_FOUND" });
-        }
-
-        return formatJob(job);
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        console.error("Get job error:", error);
-        throw new TRPCError({ message: "Failed to get job", code: "INTERNAL_SERVER_ERROR" });
       }
     }),
+
+  get: protectedProcedure.input(getJobSchema).query(async ({ input, ctx }) => {
+    try {
+      const job = await prisma.processingJob.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.userId,
+        },
+        include: {
+          files: true,
+        },
+      });
+
+      if (!job) {
+        throw new TRPCError({ message: "Job not found", code: "NOT_FOUND" });
+      }
+
+      return formatJob(job);
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      console.error("Get job error:", error);
+      throw new TRPCError({
+        message: "Failed to get job",
+        code: "INTERNAL_SERVER_ERROR",
+      });
+    }
+  }),
 
   updateStatus: protectedProcedure
     .input(updateJobStatusSchema)
@@ -164,18 +184,20 @@ export const jobProcedure = createTRPCRouter({
         if (!job) {
           throw new TRPCError({ message: "Job not found", code: "NOT_FOUND" });
         }
-         
-        await inngest.send({
-            name:  "process-workflow-events",
-            data: { jobId: job.id, userId: job.userId }
-        })
-        
 
-        return { msg: "Job scheduled for processing"}
+        await inngest.send({
+          name: "process-workflow-events",
+          data: { jobId: job.id, userId: job.userId },
+        });
+
+        return { msg: "Job scheduled for processing" };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("Update job status error:", error);
-        throw new TRPCError({ message: "Failed to update status", code: "INTERNAL_SERVER_ERROR" });
+        throw new TRPCError({
+          message: "Failed to update status",
+          code: "INTERNAL_SERVER_ERROR",
+        });
       }
     }),
 
@@ -202,11 +224,14 @@ export const jobProcedure = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         console.error("Delete job error:", error);
-        throw new TRPCError({ message: "Failed to delete job", code: "INTERNAL_SERVER_ERROR" });
+        throw new TRPCError({
+          message: "Failed to delete job",
+          code: "INTERNAL_SERVER_ERROR",
+        });
       }
     }),
 
-    getDownloadUrls: protectedProcedure
+  getDownloadUrls: protectedProcedure
     .input(z.object({ keys: z.array(z.string()) }))
     .mutation(async ({ input }) => {
       try {
@@ -214,7 +239,7 @@ export const jobProcedure = createTRPCRouter({
           input.keys.map(async (key) => ({
             key,
             url: await generateDownloadUrl(key),
-          }))
+          })),
         );
         return urls;
       } catch (error) {
