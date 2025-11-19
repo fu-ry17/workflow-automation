@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id
+  name          String
+  email         String
+  emailVerified Boolean    @default(false)
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  workflows     Workflow[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model Jwks {
+  id         String   @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+
+  @@map("jwks")
+}
+
+model Workflow {
+  id             String           @id @default(uuid())
+  title          String
+  description    String?
+  status         String           @default("pending")
+  notes          Json?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  userId         String           @map("user_id")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflowFiles  WorkflowFile[]
+  processingJobs ProcessingJob[]
+
+  @@map("workflow")
+}
+
+model WorkflowFile {
+  id          String   @id @default(uuid())
+  workflowId  String   @map("workflow_id")
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  s3_key      String
+  description String?
+  displayName String?
+  version     Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("workflow_file")
+}
+
+model ProcessingJob {
+  id          String              @id @default(uuid())
+  workflowId  String              @map("workflow_id")
+  workflow    Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId      String              @map("user_id")
+  s3_key      String?
+  payload     String?
+  jobType     ProcessingJobType   @map("job_type")
+  status      ProcessingJobStatus @map("status")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  startedAt   DateTime?           @map("started_at")
+  completedAt DateTime?           @map("completed_at")
+  files Files[]
+
+  @@map("processing_job")
+}
+
+enum ProcessingJobType {
+  users
+  service_units
+}
+
+enum ProcessingJobStatus {
+  queued
+  processing
+  successful
+  failed
+}
+
+model Files {
+  id          String   @id @default(cuid())
+  s3Key       String
+  name        String  
+  url         String  
+  workflowId  String  
+  userId      String  
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  processingJobId String? 
+  processingJob   ProcessingJob? @relation(fields: [processingJobId], references: [id], onDelete: Cascade)
+
+  @@index([s3Key])
+}
