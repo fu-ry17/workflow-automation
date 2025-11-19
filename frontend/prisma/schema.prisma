@@ -6,7 +6,8 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../src/generated/prisma",
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -148,15 +149,15 @@ enum ProcessingJobStatus {
 model Files {
   id          String   @id @default(cuid())
   s3Key       String
-  name        String  
-  url         String  
-  workflowId  String  
-  userId      String  
+  name        String
+  url         String
+  workflowId  String
+  userId      String
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  processingJobId String? 
+  processingJobId String?
   processingJob   ProcessingJob? @relation(fields: [processingJobId], references: [id], onDelete: Cascade)
 
   @@index([s3Key])
