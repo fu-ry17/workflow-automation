@@ -8,6 +8,7 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  trustedOrigins: ["https://workflow-automation-one.vercel.app"],
   socialProviders: {
     google: {
       prompt: "select_account",
