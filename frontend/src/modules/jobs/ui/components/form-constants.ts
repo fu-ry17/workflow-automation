@@ -31,6 +31,10 @@ export const outpatientTypes = [
   "tb",
   "nutrition",
   "injection",
+  "observation_room",
+  "procedure_room",
+  "youth_adolescent_room",
+  "cervical_screening_room",
 ] as const;
 
 // Outpatient facility types with labels
@@ -83,7 +87,6 @@ export const INPATIENT_WARDS = [
 
 export type InpatientWard = z.infer<typeof InpatientWardSchema>;
 
-
 export const OutpatientFacilitySchema = z.object({
   facility: z.enum(outpatientTypes),
   roomCount: z.number().int().min(1, "Room count must be at least 1"),
@@ -91,12 +94,18 @@ export const OutpatientFacilitySchema = z.object({
 
 export type OutpatientFacility = z.infer<typeof OutpatientFacilitySchema>;
 
-
 // Define wards that belong to the nested maternity structure
-export const MATERNITY_CHILD_WARDS = ["nbu_ward", "labour_ward", "post_natal_ward", "antenatal_ward"];
+export const MATERNITY_CHILD_WARDS = [
+  "nbu_ward",
+  "labour_ward",
+  "post_natal_ward",
+  "antenatal_ward",
+];
 
 // --- SCHEMAS ---
-export const roomCountsSchema = z.record(z.string(), z.number().int().min(0)).optional();
+export const roomCountsSchema = z
+  .record(z.string(), z.number().int().min(0))
+  .optional();
 
 export const outpatientFields = outpatientTypes.reduce(
   (acc, type) => {
@@ -127,12 +136,16 @@ export const facilitySchema = z.object({
 
 export const serviceUnitsFormSchema = z.object({
   jobType: z.literal("service_units"),
-  facilities: z.array(facilitySchema).min(1, "At least one facility is required"),
+  facilities: z
+    .array(facilitySchema)
+    .min(1, "At least one facility is required"),
 });
 
 export type ServiceUnitsFormSchema = z.infer<typeof serviceUnitsFormSchema>;
 
-export const transformFacilities = (facilities: ServiceUnitsFormSchema["facilities"]) => {
+export const transformFacilities = (
+  facilities: ServiceUnitsFormSchema["facilities"],
+) => {
   return facilities.map((facility) => {
     // --- TRANSFORM OUTPATIENT ---
     const outpatient: Record<string, any> = {};
