@@ -56,12 +56,21 @@ units_template = {
         "injection": _mk_outpatient("Triage - 1, Injection Room - 2"),
         "maternity": _mk_outpatient("Triage - 1, Nursing Station - 2"),
         "hts": _mk_outpatient("Triage - 1, HTS Room- 2"),
+        "observation_room": _mk_outpatient("Triage - 1, Observation Room- 2"),
+        "procedure_room": _mk_outpatient("Triage - 1, Procedure Room- 2"),
+        "cervical_screening_room": _mk_outpatient(
+            "Triage - 1, Cervical Screening Room- 2"
+        ),
+        "youth_adolescent_room": _mk_outpatient(
+            "Triage - 1, Youth Adolescent Room - 2"
+        ),
     },
     "inpatient": {
         "gynae_ward": _mk_inpatient(),
         "paediatric_ward": _mk_inpatient(),
         "female_ward": _mk_inpatient(),
         "male_ward": _mk_inpatient(),
+        "general_ward": _mk_inpatient(),
         "maternity": {
             **_mk_inpatient(),
             "children": {

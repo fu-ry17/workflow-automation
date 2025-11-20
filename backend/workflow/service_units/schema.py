@@ -16,6 +16,7 @@ class Maternity(BaseModel):
 
 class InpatientUnits(BaseModel):
     gynae_ward: Optional[int] = None
+    general_ward: Optional[int] = None
     paediatric_ward: Optional[int] = None
     female_ward: Optional[int] = None
     male_ward: Optional[int] = None
@@ -42,6 +43,10 @@ class OutpatientUnits(BaseModel):
     ccc: Optional[bool] = None
     maternity: Optional[bool] = None
     hts: Optional[bool] = None
+    observation_room: Optional[bool] = None
+    procedure_room: Optional[bool] = None
+    youth_adolescent_room: Optional[bool] = None
+    cervical_screening_room: Optional[bool] = None
     # Add room counts dictionary
     room_counts: Optional[dict[str, int]] = Field(default_factory=dict)
 
