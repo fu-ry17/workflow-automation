@@ -10,9 +10,11 @@ import {
 
 import { TRPCError } from "@trpc/server";
 import { inngest } from "@/inngest/client";
-import { generateDownloadUrl } from "@/lib/aws";
+import { generateDownloadUrl, uploadFile } from "@/lib/aws";
 import z from "zod";
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import path from "path";
 
 const formatJob = (job: any): JobResponse => ({
   id: job.id,
@@ -100,45 +102,114 @@ export const jobProcedure = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       if (!ctx.userId) {
         throw new TRPCError({
-          message: "User not authenticated",
           code: "UNAUTHORIZED",
+          message: "User not authenticated",
         });
       }
 
       try {
+        // 1. Check Workflow
         const workflow = await prisma.workflow.findFirst({
-          where: {
-            id: input.workflowId,
-            userId: ctx.userId,
-          },
+          where: { id: input.workflowId, userId: ctx.userId },
         });
 
         if (!workflow) {
           throw new TRPCError({
-            message: "Workflow not found",
             code: "NOT_FOUND",
+            message: "Workflow not found",
           });
         }
 
-        const job = await prisma.processingJob.create({
+        let job = await prisma.processingJob.create({
           data: {
             workflowId: input.workflowId,
             userId: ctx.userId,
             // @ts-ignore
             jobType: input.jobType,
-            s3_key: input.s3_key || null,
+            s3_key: null,
             payload: input.payload || null,
             status: "queued",
           },
         });
 
+        if (input.s3_key) {
+          try {
+            const fileBuffer = Buffer.from(input.s3_key, "base64");
+
+            let extension = ".bin";
+            let contentType = "application/octet-stream";
+            let action = null;
+
+            // Try to extract metadata from the JSON payload
+            if (input.payload) {
+              try {
+                const parsed = JSON.parse(input.payload);
+                action = parsed.action;
+
+                // This will now work because you updated the Frontend
+                if (parsed.fileName) {
+                  const ext = path.extname(parsed.fileName).toLowerCase();
+                  if (ext) extension = ext;
+                }
+              } catch (e) {
+                console.error("Error parsing payload JSON:", e);
+              }
+            }
+
+            // Map extension to Content-Type
+            const mimeTypes: Record<string, string> = {
+              ".xlsx":
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              ".xls": "application/vnd.ms-excel",
+              ".csv": "text/csv",
+              ".pdf": "application/pdf",
+            };
+
+            if (mimeTypes[extension]) {
+              contentType = mimeTypes[extension];
+            }
+
+            const uniqueFolder = randomUUID();
+            const uniqueFile = `original`;
+            const s3Path = `${uniqueFolder}/${uniqueFile}${extension}`;
+            const finalFileName = `${uniqueFile}${extension}`;
+
+            // Upload to S3
+            await uploadFile(fileBuffer, s3Path, contentType);
+
+            // Create the final payload for the worker
+            const updatedPayload = {
+              file_name: finalFileName,
+              action: action,
+            };
+
+            // 4. Update Job
+            job = await prisma.processingJob.update({
+              where: { id: job.id },
+              data: {
+                s3_key: s3Path,
+                payload: JSON.stringify(updatedPayload),
+              },
+            });
+          } catch (uploadError) {
+            // Clean up if upload fails
+            await prisma.processingJob.update({
+              where: { id: job.id },
+              data: { status: "failed" },
+            });
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "File upload failed",
+            });
+          }
+        }
+
         return formatJob(job);
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error("Create job error:", error);
         throw new TRPCError({
-          message: "Failed to create job",
           code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create job",
         });
       }
     }),

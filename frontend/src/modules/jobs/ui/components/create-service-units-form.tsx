@@ -51,7 +51,6 @@ import {
   OUTPATIENT_FACILITIES,
   INPATIENT_WARDS,
 } from "./form-constants";
-import { useCreateJob } from "../../hooks/use-create-job";
 
 interface ServiceUnitsFormProps {
   workflowId: string;
@@ -115,7 +114,7 @@ export const ServiceUnitsForm = ({
         payload: JSON.stringify(transformedPayload),
       });
     } catch (error) {
-      console.error("Failed to create service units job:", error);
+      toast.error("Failed to create service units job");
     }
   };
 

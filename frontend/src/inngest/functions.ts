@@ -46,7 +46,9 @@ export const processWorkFlow = inngest.createFunction(
           return newKey; // Return the new key
         }
 
-        return job.s3_key; // Return the existing key
+        return job.jobType === "service_units"
+          ? job.s3_key
+          : job.s3_key.split("/")[0]; // Return the existing key
       });
 
       // 3. Set status to processing
@@ -66,7 +68,7 @@ export const processWorkFlow = inngest.createFunction(
         body: JSON.stringify({
           payload: job.payload,
           workflow_type: job.jobType,
-          folder_id: s3Key, // <--- USE s3Key HERE
+          folder_id: s3Key,
         }),
         headers: {
           "Content-Type": "application/json",

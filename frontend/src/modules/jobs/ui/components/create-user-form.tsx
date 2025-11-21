@@ -46,18 +46,17 @@ interface UsersFormProps {
 
 export const UsersForm = ({ workflowId, setOpen }: UsersFormProps) => {
   const utils = trpc.useUtils();
-  const [workflow] = trpc.workflow.get.useSuspenseQuery({ id: workflowId });
 
-  // const { isPending, mutateAsync } = trpc.job.createUpdate.useMutation({
-  //   onSuccess: () => {
-  //     utils.workflow.invalidate();
-  //     toast.success("User job created successfully");
-  //     setOpen(false);
-  //   },
-  //   onError: (error) => {
-  //     toast.error(error.message);
-  //   },
-  // });
+  const { mutateAsync, isPending } = trpc.job.create.useMutation({
+    onSuccess: async () => {
+      await utils.job.getMany.invalidate();
+      setOpen(false);
+      toast.success("Service units job created successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to create job");
+    },
+  });
 
   const form = useForm<UsersFormSchema>({
     resolver: zodResolver(usersFormSchema),
@@ -86,19 +85,17 @@ export const UsersForm = ({ workflowId, setOpen }: UsersFormProps) => {
         ? await convertFileToBase64(values.file[0])
         : undefined;
 
-      const payload = {
-        action: values.userAction,
-        file: fileBase64,
-        jobType: values.jobType,
+      await mutateAsync({
         workflowId: workflowId,
-        // You can add other fields from the workflow object if needed in the payload
-        // For example: level: workflow.notes?.level,
-      };
-
-      console.log({ payload });
-      // await mutateAsync(payload);
+        jobType: values.jobType,
+        s3_key: fileBase64,
+        payload: JSON.stringify({
+          action: values.userAction,
+          fileName: values.file[0]?.name,
+        }),
+      });
     } catch (error) {
-      console.error("Failed to create user job:", error);
+      toast.error("Failed to create user job");
     }
   };
 

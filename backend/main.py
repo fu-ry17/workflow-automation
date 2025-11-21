@@ -44,7 +44,7 @@ class WorkFlowPayload(BaseModel):
     folder_id: str
 
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-2.5-flash"
 
 
 @app.cls(
@@ -256,7 +256,9 @@ class WorkflowServer:
 
         print("Validated users ", response_data)
 
-        validated_data = json.loads(response_data)
+        valid_users_clean = self._extract_json_payload(response_data)
+
+        validated_data = json.loads(valid_users_clean)
         valid_users = validated_data.get("valid_users", [])
         # errors = validated_data.get("errors", [])
 
@@ -330,13 +332,13 @@ def main():
     workflow_server = WorkflowServer()
     url = workflow_server.process_workflow.get_web_url()
 
-    payload_obj = {"file_name": "november-18-users-v1.xlsx"}
+    payload_obj = {"file_name": "5e7aca3f-5309-4fa0-943a-71dc0d1354cc.csv"}
 
     #  process user
     body = WorkFlowPayload(
         payload=json.dumps(payload_obj),
         workflow_type=WorkflowType.users,  # change to service_unts
-        folder_id="november-18-facilities",  # aws folder name
+        folder_id="65c3cd13-7483-41b5-9aaa-da69c7ba5e47",  # aws folder name
     )
 
     headers = {"Content-Type": "application/json", "Authorization": "Bearer 123123"}

@@ -22,7 +22,10 @@ export const getManyJobsSchema = z.object({
   workflowId: z.string().uuid().optional(),
   jobType: z.enum(["users", "service_units"]).optional(),
   status: z.enum(["queued", "processing", "successful", "failed"]).optional(),
-  sortBy: z.enum(["createdAt", "updatedAt", "status", "jobType"]).optional().default("createdAt"),
+  sortBy: z
+    .enum(["createdAt", "updatedAt", "status", "jobType"])
+    .optional()
+    .default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
   page: z.number().min(1).optional().default(1),
   limit: z.number().min(1).max(100).optional().default(20),
@@ -44,7 +47,7 @@ export type JobResponse = {
   updated_at: string;
   started_at: string | null;
   completed_at: string | null;
-  files: Files[] | []
+  files: Files[] | [];
 };
 
 export type GetManyJobsResponse = {
