@@ -205,7 +205,7 @@ export const ServiceUnitsForm = ({
                               e.stopPropagation();
                               remove(index);
                             }}
-                            className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

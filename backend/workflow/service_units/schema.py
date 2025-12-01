@@ -20,6 +20,7 @@ class InpatientUnits(BaseModel):
     paediatric_ward: Optional[int] = None
     female_ward: Optional[int] = None
     male_ward: Optional[int] = None
+    first_stage: Optional[int] = None
     maternity: Optional[Maternity] = None
 
 
@@ -43,6 +44,7 @@ class OutpatientUnits(BaseModel):
     ccc: Optional[bool] = None
     maternity: Optional[bool] = None
     hts: Optional[bool] = None
+    radiology: Optional[bool] = None
     observation_room: Optional[bool] = None
     procedure_room: Optional[bool] = None
     youth_adolescent_room: Optional[bool] = None

@@ -29,6 +29,7 @@ export const outpatientTypes = [
   "occupational_therapy",
   "orthopaedic_clinic",
   "tb",
+  "hts",
   "nutrition",
   "injection",
   "observation_room",
@@ -55,6 +56,7 @@ export const OUTPATIENT_FACILITIES = [
   { value: "occupational_therapy", label: "Occupational Therapy" },
   { value: "orthopaedic_clinic", label: "Orthopaedic Clinic" },
   { value: "tb", label: "TB" },
+  { value: "hts", label: "TB" },
   { value: "nutrition", label: "Nutrition" },
   { value: "injection", label: "Injection" },
   { value: "observation_room", label: "Observation Room" },
@@ -75,6 +77,7 @@ export const InpatientWardSchema = z.object({
     "post_natal_ward",
     "antenatal_ward",
     "general_ward",
+    "first_stage",
   ]),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
 });
@@ -89,6 +92,7 @@ export const INPATIENT_WARDS = [
   { value: "post_natal_ward", label: "Post Natal Ward" },
   { value: "antenatal_ward", label: "Antenatal Ward" },
   { value: "general_ward", label: "General Ward" },
+  { value: "first_stage", label: "First Stage" },
 ] as const;
 
 export type InpatientWard = z.infer<typeof InpatientWardSchema>;

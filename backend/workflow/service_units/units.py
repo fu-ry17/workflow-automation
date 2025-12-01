@@ -64,6 +64,7 @@ units_template = {
         "youth_adolescent_room": _mk_outpatient(
             "Triage - 1, Youth Adolescent Room - 2"
         ),
+        "radiology": _mk_outpatient("Triage - 1, Radiology- 2"),
     },
     "inpatient": {
         "gynae_ward": _mk_inpatient(),
@@ -71,6 +72,7 @@ units_template = {
         "female_ward": _mk_inpatient(),
         "male_ward": _mk_inpatient(),
         "general_ward": _mk_inpatient(),
+        "first_stage": _mk_inpatient(),
         "maternity": {
             **_mk_inpatient(),
             "children": {
