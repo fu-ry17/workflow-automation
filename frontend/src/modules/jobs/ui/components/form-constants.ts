@@ -56,7 +56,7 @@ export const OUTPATIENT_FACILITIES = [
   { value: "occupational_therapy", label: "Occupational Therapy" },
   { value: "orthopaedic_clinic", label: "Orthopaedic Clinic" },
   { value: "tb", label: "TB" },
-  { value: "hts", label: "TB" },
+  { value: "hts", label: "HTS" },
   { value: "nutrition", label: "Nutrition" },
   { value: "injection", label: "Injection" },
   { value: "observation_room", label: "Observation Room" },

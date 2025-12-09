@@ -10,6 +10,7 @@ import {
   Download,
   CheckCircle2,
   Settings2,
+  TableProperties,
 } from "lucide-react";
 
 // --- TYPES ---
@@ -34,23 +35,20 @@ interface ExtractedData {
 }
 
 interface ProcessResult {
-  csv: string;
-  count: number;
-  files: number;
-  fileName: string;
+  workerCsv: string;
+  unitCsv: string;
+  workerCount: number;
+  filesProcessed: number;
+  workerFileName: string;
+  unitFileName: string;
 }
 
 const ExcelExtractor = () => {
   const [loading, setLoading] = useState<boolean>(false);
-
-  // 1. Config State - Starts Empty
   const [config, setConfig] = useState<string>("");
-
-  // 2. Service Units Map
   const [serviceUnitsMap, setServiceUnitsMap] = useState<
     Record<string, string>
   >({});
-
   const [result, setResult] = useState<ProcessResult | null>(null);
 
   // --- PARSER ---
@@ -64,7 +62,6 @@ const ExcelExtractor = () => {
         const name = parts[0];
         const prefix = parts[1];
 
-        // Smart Search
         let search = name.toLowerCase();
         const firstWord = search.split(" ")[0];
         if (firstWord && firstWord.length > 3) search = firstWord;
@@ -74,17 +71,58 @@ const ExcelExtractor = () => {
       .filter((item): item is FacilityConfig => item !== null);
   }, [config]);
 
-  // --- INPUT HANDLER (Auto-Format Newlines to Commas) ---
   const handleServiceUnitChange = (prefix: string, value: string) => {
-    // Immediately replace newlines with ", " to format it as a single line string
     const formatted = value.replace(/\n/g, ", ").replace(/,\s+,/g, ", ");
-
     setServiceUnitsMap((prev) => ({
       ...prev,
       [prefix]: formatted,
     }));
   };
 
+  // --- HELPER: GENERATE UNIT CSV CONTENT ---
+  const generateUnitCsv = (): string | null => {
+    if (facilities.length === 0) return null;
+
+    const rows: any[] = [];
+
+    facilities.forEach((fac) => {
+      const unitsRaw = serviceUnitsMap[fac.prefix] || "";
+      const units = unitsRaw
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0);
+
+      units.forEach((unitRaw) => {
+        // CLEAN: "OPD - NYERT" -> "OPD"
+        const cleanUnit = unitRaw.split("-")[0].trim();
+        // ID: "OPD - NYERT" (The unit setup usually requires ID to match the Name+Prefix)
+        const id = `${cleanUnit} - ${fac.prefix}`;
+
+        rows.push({
+          ID: id,
+          "Service Unit": cleanUnit,
+          Company: fac.name,
+          "Appointment Booking Practitioner": "",
+        });
+      });
+    });
+
+    if (rows.length === 0) return null;
+
+    const ws = XLSX.utils.json_to_sheet(rows, {
+      header: [
+        "ID",
+        "Service Unit",
+        "Company",
+        "Appointment Booking Practitioner",
+      ],
+    });
+
+    // ⚠️ FORCE QUOTES: This prevents headers with spaces from splitting in Excel
+    return XLSX.utils.sheet_to_csv(ws, { forceQuotes: true });
+  };
+
+  // --- MAIN PROCESS HANDLER ---
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -95,6 +133,7 @@ const ExcelExtractor = () => {
     const allData: ExtractedData[] = [];
 
     try {
+      // 1. Process Excel Files (Workers)
       for (const file of files) {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer);
@@ -112,16 +151,32 @@ const ExcelExtractor = () => {
         if (match) {
           company = match.name;
           extension = match.prefix;
-          // No extra formatting needed here because we formatted on input change
           specificUnits = serviceUnitsMap[match.prefix] || "";
         }
 
         const warehouseValue = `Main Pharmacy - ${extension}, All Warehouses - ${extension}`;
 
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-        const headers = json[2] || [];
 
-        // Dynamic Column Search
+        // Find Header
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(5, json.length); i++) {
+          const row = json[i];
+          if (
+            row &&
+            row.some(
+              (cell: any) =>
+                cell && cell.toString().toLowerCase().includes("full names"),
+            )
+          ) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        if (headerRowIndex === -1) continue;
+
+        const headers = json[headerRowIndex] || [];
         const findCol = (s: string) =>
           headers.findIndex(
             (h: any) => h && h.toString().toLowerCase().includes(s),
@@ -129,15 +184,14 @@ const ExcelExtractor = () => {
 
         let unitIdx = findCol("unit");
         let pointIdx = findCol("point");
-        let deptIdx = findCol("department"); // Explicitly search for Department
+        let deptIdx = findCol("department");
 
-        // Fallbacks for specific template versions
         if (unitIdx === -1) unitIdx = 8;
         if (pointIdx === -1) pointIdx = 9;
 
-        json.slice(3).forEach((row: any[]) => {
+        // Extract Rows
+        json.slice(headerRowIndex + 1).forEach((row: any[]) => {
           if (row[1]) {
-            // Service Unit Priority: Manual Override > Excel Unit > Excel Point > Empty
             let serviceVal = "";
             if (specificUnits) {
               serviceVal = specificUnits;
@@ -145,7 +199,6 @@ const ExcelExtractor = () => {
               serviceVal = row[unitIdx] || row[pointIdx] || "";
             }
 
-            // Department Logic
             const deptVal = deptIdx !== -1 ? row[deptIdx] || "" : "";
 
             allData.push({
@@ -165,17 +218,29 @@ const ExcelExtractor = () => {
         });
       }
 
+      // 2. Generate Worker CSV
+      let workerCsvOutput = "";
       if (allData.length > 0) {
         const ws = XLSX.utils.json_to_sheet(allData);
-        const csvOutput = XLSX.utils.sheet_to_csv(ws);
+        // Force quotes for Worker CSV too to prevent name splitting
+        workerCsvOutput = XLSX.utils.sheet_to_csv(ws, { forceQuotes: true });
+      }
+
+      // 3. Generate Service Unit CSV
+      const unitCsvOutput = generateUnitCsv() || "";
+
+      if (workerCsvOutput) {
+        const dateStr = new Date().toISOString().slice(0, 10);
         setResult({
-          csv: csvOutput,
-          count: allData.length,
-          files: files.length,
-          fileName: `Bulk_Upload_${new Date().toISOString().slice(0, 10)}.csv`,
+          workerCsv: workerCsvOutput,
+          unitCsv: unitCsvOutput,
+          workerCount: allData.length,
+          filesProcessed: files.length,
+          workerFileName: `Bulk_Upload_${dateStr}.csv`,
+          unitFileName: `Service_Units_Setup_${dateStr}.csv`,
         });
       } else {
-        alert("No valid data found.");
+        alert("No valid worker data found.");
       }
     } catch (err) {
       console.error(err);
@@ -186,13 +251,27 @@ const ExcelExtractor = () => {
     }
   };
 
-  const downloadFile = () => {
+  const downloadAll = () => {
     if (!result) return;
-    const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, result.fileName);
+
+    // Download Worker File
+    const blob1 = new Blob([result.workerCsv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    saveAs(blob1, result.workerFileName);
+
+    // Download Unit File (if exists)
+    if (result.unitCsv) {
+      setTimeout(() => {
+        const blob2 = new Blob([result.unitCsv], {
+          type: "text/csv;charset=utf-8;",
+        });
+        saveAs(blob2, result.unitFileName);
+      }, 500);
+    }
   };
 
-  // --- STYLES (Clean Shadcn Theme) ---
+  // --- THEME CLASSES ---
   const cardClass =
     "w-full max-w-3xl mx-auto mt-10 p-6 border bg-card text-card-foreground rounded-xl shadow-sm";
   const labelClass =
@@ -207,7 +286,6 @@ const ExcelExtractor = () => {
   return (
     <div className="p-4 font-sans text-foreground">
       <div className={cardClass}>
-        {/* Header */}
         <div className="flex items-center gap-3 mb-6 border-b pb-4">
           <div className="p-2 bg-secondary rounded-md">
             <FileSpreadsheet className="w-5 h-5" />
@@ -215,13 +293,13 @@ const ExcelExtractor = () => {
           <div>
             <h3 className="font-semibold tracking-tight">Data Extractor</h3>
             <p className="text-sm text-muted-foreground">
-              Facility Mapping & Unit Overrides
+              Bulk Upload & Service Unit Generation
             </p>
           </div>
         </div>
 
         <div className="space-y-6">
-          {/* 1. Facility Config */}
+          {/* CONFIGURATION */}
           <div className="grid w-full gap-1.5">
             <label className={labelClass}>
               <Settings2 className="w-4 h-4" />
@@ -229,20 +307,23 @@ const ExcelExtractor = () => {
             </label>
             <textarea
               className={`${inputClass} min-h-[80px] font-mono`}
-              placeholder={`e.g.\nDemo disp - DI\nTest disp - TD`}
+              placeholder={`e.g.\nNyeri Town Health Centre - NYERT\nKaratina Hospital - KAR`}
               value={config}
               onChange={(e) => setConfig(e.target.value)}
               spellCheck={false}
             />
             <p className="text-[0.8rem] text-muted-foreground">
-              Enter facilities above. Corresponding inputs will appear below.
+              Format: Facility Name - PREFIX
             </p>
           </div>
 
-          {/* 2. Dynamic Service Units (Side-by-Side Layout) */}
+          {/* SERVICE UNITS INPUTS */}
           {facilities.length > 0 && (
             <div className="space-y-3 border-t pt-4">
-              <label className={labelClass}>Service Unit Overrides</label>
+              <label className={labelClass}>
+                <TableProperties className="w-4 h-4" />
+                Service Units (Inpatient Departments)
+              </label>
 
               <div className="grid gap-3">
                 {facilities.map((fac) => (
@@ -250,7 +331,6 @@ const ExcelExtractor = () => {
                     key={fac.prefix}
                     className="flex items-start gap-4 p-2 rounded-md hover:bg-secondary/50 transition-colors"
                   >
-                    {/* Left: Label */}
                     <div className="w-1/3 pt-2">
                       <div className="text-sm font-medium">{fac.name}</div>
                       <div className="text-xs text-muted-foreground">
@@ -258,11 +338,10 @@ const ExcelExtractor = () => {
                       </div>
                     </div>
 
-                    {/* Right: Input */}
                     <div className="w-2/3">
                       <textarea
                         className={`${inputClass} min-h-[40px] resize-y`}
-                        placeholder={`Paste units for ${fac.name}...`}
+                        placeholder={`e.g. Maternity, OPD - ${fac.prefix}...`}
                         value={serviceUnitsMap[fac.prefix] || ""}
                         onChange={(e) =>
                           handleServiceUnitChange(fac.prefix, e.target.value)
@@ -275,7 +354,7 @@ const ExcelExtractor = () => {
             </div>
           )}
 
-          {/* 3. Actions */}
+          {/* UPLOAD & DOWNLOAD */}
           <div className="pt-4 border-t mt-4">
             <label className={primaryBtnClass}>
               {loading ? (
@@ -299,13 +378,16 @@ const ExcelExtractor = () => {
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="text-sm text-center text-muted-foreground mb-2 mt-3 flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>
-                    {result.files} files, {result.count} records
-                  </span>
+                  <span>Success! {result.filesProcessed} files processed.</span>
                 </div>
-                <button onClick={downloadFile} className={downloadBtnClass}>
+                <button onClick={downloadAll} className={downloadBtnClass}>
                   <Download className="mr-2 h-4 w-4" />
-                  Download CSV
+                  Download All Files
+                  {result.unitCsv && (
+                    <span className="ml-1 opacity-75 text-xs font-normal">
+                      (Worker CSV + Service Units CSV)
+                    </span>
+                  )}
                 </button>
               </div>
             )}
